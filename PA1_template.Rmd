@@ -8,18 +8,67 @@ output:
 
 ## Loading and preprocessing the data
 
+# Load in packages for use in the program.
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+library(lattice)
+
+# Load in the data.
+stepsdata<-read.csv("activity.csv", header = TRUE)
+
 
 
 ## What is mean total number of steps taken per day?
+
+# Generate a histogram of steps per day and report mean and median values.
+stepsperday<-stepsdata %>% select(date, steps, interval) %>% group_by(date) %>% summarize(totalsteps= sum(steps)) %>%na.omit()
+hist(stepsperday$totalsteps, xlab = "Total Steps",main="Histogram: Total Steps per Day", breaks = 25)
+firstmean<-mean(stepsperday$totalsteps)
+firstmedian<-median(stepsperday$totalsteps)
+firstmean
+firstmedian
 
 
 
 ## What is the average daily activity pattern?
 
+# Generate a time series for the average steps per interval and determine the maximum value.
+stepsperinterval<-stepsdata%>% select(interval, steps) %>% na.omit() %>% group_by(interval) %>% summarize(avgsteps= mean(steps)) 
+ggplot(stepsperinterval, aes(x=interval, y=avgsteps))+ geom_line()
+stepsperinterval[which(stepsperinterval$avgsteps== max(stepsperinterval$avgsteps)),]
+
 
 
 ## Imputing missing values
 
+# Compute the number of NAs and then fill the entries with the corresponding average for that time period.
+# Create a histogram and report the mean and median as before.
+# Compare the old mean and median to the new ones.
+missing<-sum(is.na(stepsdata))
+missing
+fillmissing<-function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+pretenddata<-stepsdata%>% group_by(interval) %>% mutate(steps= fillmissing(steps))
+pretendstepsperday<-pretenddata %>% select(date, steps) %>% group_by(date) %>% summarize(totalsteps= sum(steps)) %>%na.omit()
+hist(pretendstepsperday$totalsteps, xlab = "Total Steps",main="Histogram: Total Steps per Day", breaks = 25)
+secondmean<-mean(pretendstepsperday$totalsteps)
+secondmedian<-median(pretendstepsperday$totalsteps)
+# First mean and second mean:
+firstmean
+secondmean
+# First median and second median:
+firstmedian
+secondmedian
+
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+# Compare weekdays to weekends.
+compareweekendsdata<-stepsdata
+compareweekendsdata$steps[is.na(compareweekendsdata$steps)] <- median(stepsdata$steps, na.rm=TRUE)
+compareweekendsdata$date<-as.Date(compareweekendsdata$date)
+compareweekendsdata$dayname<-weekdays(compareweekendsdata$date)
+compareweekendsdata$weekend<-as.factor(ifelse(compareweekendsdata$dayname=="Saturday"|compareweekendsdata$dayname=="Sunday","weekend","weekday"))
+weekendplotdata<-aggregate(steps~interval+weekend,compareweekendsdata,mean)
+xyplot(steps~interval|factor(weekend),data=weekendplotdata,aspect=1/3,type="l")
